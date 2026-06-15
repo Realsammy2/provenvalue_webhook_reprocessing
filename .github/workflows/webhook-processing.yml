@@ -1,0 +1,37 @@
+name: Reprocess Webhook Events
+
+on:
+  schedule:
+    - cron: '*/15 * * * *' # every 15 minutes
+  workflow_dispatch: {}
+
+concurrency:
+  group: 'reprocess-webhook-events'
+  cancel-in-progress: true
+
+jobs:
+  reprocess:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Reprocess pending webhook events (safe batch)
+        env:
+          DB_HOST: ${{ secrets.DB_HOST }}
+          DB_PORT: ${{ secrets.DB_PORT }}
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+          DB_SSL: ${{ secrets.DB_SSL }}
+        run: |
+          # Adjust the --limit value for your expected DB write volume. Use smaller batches if you have a busy DB.
+          node ./scripts/auto_reprocess_webhook_events.js --limit=200
